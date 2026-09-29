@@ -1,4 +1,4 @@
-import * as request from 'supertest';
+import request from 'supertest';
 
 describe('pets', () => {
   const baseURL = 'http://localhost:4000';

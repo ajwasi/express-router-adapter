@@ -4,36 +4,33 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "npm run build && DISABLE_PUBLISH_METRICS=1 baseUrl=http://localhost:4000 node build/server.js",
-    "test": "TS_NODE_PROJECT=tsconfig.test.json mocha -r ts-node/register integration-tests/**/*.spec.ts",
-    "test:watch": "TS_NODE_PROJECT=tsconfig.test.json mocha -r ts-node/register --watch --watch-extensions ts integration-tests/**/*.spec.ts"
+    "test": "TS_NODE_PROJECT=tsconfig.test.json mocha -r ts-node/register \"integration-tests/**/*.spec.ts\"",
+    "test:watch": "TS_NODE_PROJECT=tsconfig.test.json mocha -r ts-node/register --watch --watch-extensions ts \"integration-tests/**/*.spec.ts\""
   },
   "dependencies": {
-    "@symbiotic/express-router-adapter": "^1.0.1",
-    "aurelia-dependency-injection": "^1.4.2",
-    "aws-serverless-express": "^3.3.6",
-    "body-parser": "^1.19.0",
-    "express": "^4.17.1",
-    "lodash": "^4.17.4",
-    "reflect-metadata": "^0.1.13"
+    "@codegenie/serverless-express": "^4.16.0",
+    "@symbiotic/express-router-adapter": "file:..",
+    "aurelia-dependency-injection": "^1.5.2",
+    "chokidar": "^4.0.0",
+    "express": "^5.1.0",
+    "lodash": "^4.17.21",
+    "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
-    "@types/express": "^4.17.0",
-    "@types/lodash": "^4.14.88",
-    "@types/mocha": "^5.2.6",
-    "@types/node": "^8.10.45",
-    "assert": "^1.4.1",
-    "chokidar": "^2.1.6",
-    "express": "^4.0.0",
-    "isomorphic-fetch": "^2.2.1",
-    "mocha": "^6.1.4",
-    "nyc": "^14.1.1",
+    "@types/aws-lambda": "^8.10.164",
+    "@types/express": "^4.17.21",
+    "@types/lodash": "^4.17.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^18.19.0",
+    "@types/server-destroy": "^1.0.4",
+    "@types/supertest": "^6.0.2",
+    "mocha": "^10.8.2",
     "server-destroy": "^1.0.1",
-    "superagent": "^5.1.0",
-    "supertest": "^4.0.2",
-    "ts-node": "^8.1.0",
-    "tslint": "^5.16.0",
-    "tslint-consistent-codestyle": "^1.15.1",
-    "typedoc": "^0.14.2",
-    "typescript": "^3.4.5"
+    "supertest": "^7.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.7.0"
+  },
+  "overrides": {
+    "serialize-javascript": "^7.1.2"
   }
 }

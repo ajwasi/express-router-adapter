@@ -1,7 +1,8 @@
-import * as bodyParser from 'body-parser';
+import * as express from 'express';
 
 export function bootMiddleware(app: any): void {
-  app.use(bodyParser.json({
+  // express.json is built in to express 4.16+ and 5, so body-parser is no longer needed.
+  app.use(express.json({
     type: [
       'application/json',
       '+json'
