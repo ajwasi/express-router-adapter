@@ -1,12 +1,14 @@
 // tslint:disable max-classes-per-file no-null-keyword
 import { Application } from 'express';
-import * as timeoutMiddleware from 'connect-timeout';
-import * as properUrlJoin from 'proper-url-join';
+// connect-timeout is a CommonJS `export =` function, so it needs import-equals (works with or without esModuleInterop)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+import timeoutMiddleware = require('connect-timeout');
 import { HTTPResponse, HTTPError } from './HTTPResponse';
 import { IHTTPRoute } from './RouterMetaBuilder';
 import { ISecurityContextProvider, SecurityContextProvider } from './SecurityContext';
 import { IRouteProvider, RouteProvider } from './RouteProvider';
 import { ILog, Log } from './Log';
+import { joinPaths } from './joinPaths';
 
 const isAcceptableMediaType = (mediaType, req) => {
     // req might say to accept anything, which will cause it to accept the first only listed above
@@ -17,6 +19,21 @@ const isAcceptableMediaType = (mediaType, req) => {
     } else {
         return true;
     }
+};
+
+// Express (4 and 5) throws `Invalid status code` when given a non integer status, and by then headers may
+// already be set. A missing status is a common mistake for hand built responses, so default it explicitly:
+// 204 when there is nothing to send, otherwise 200. Anything else that isn't a valid status is a programmer error
+// and fails loudly with a message that says which response was wrong.
+const resolveStatus = (model: any): number => {
+    const { status } = model;
+    if (status === undefined || status === null) {
+        return model.body === undefined && !model.send ? 204 : 200;
+    }
+    if (!Number.isInteger(status) || status < 100 || status > 999) {
+        throw new Error(`HTTPResponse status must be an integer between 100 and 999 but was ${JSON.stringify(status)}`);
+    }
+    return status;
 };
 
 const isAcceptableContentType = (mediaType, req) => {
@@ -112,7 +129,7 @@ export class ExpressRouterAdapter {
                 routeMiddleware.push(timeoutMiddleware(routeTimeout, { respond: false }));
             }
 
-            app[httpVerb](properUrlJoin(BASE_PATH, httpPath), routeMiddleware, async (req, res, next) => {
+            app[httpVerb](joinPaths(BASE_PATH, httpPath), routeMiddleware, async (req, res, next) => {
                 try {
                     let requestLogMessage = `${req.method} ${req.url}`;
 
@@ -294,7 +311,7 @@ export class ExpressRouterAdapter {
             Object.entries(model.headers || {}).forEach(([headerName, headerValue]) => {
                 response.set(headerName, headerValue);
             });
-            response.status(model.status);
+            response.status(resolveStatus(model));
 
             if (model.send) {
                 await model.send({ res: response });

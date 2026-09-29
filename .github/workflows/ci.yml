@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  test:
+    name: Express ${{ matrix.express }} / Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        express: [4, 5]
+        node: [18, 20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      # Run the same suite against each supported express major, with its matching types.
+      - run: npm install --no-save express@${{ matrix.express }} @types/express@${{ matrix.express }}
+      # Fail fast if the matrix didn't actually install the express major we mean to test.
+      # (`npm ls` can't be used: swapping versions with --no-save intentionally differs from package.json.)
+      - name: Verify installed express version
+        run: |
+          node -e "const v=require('express/package.json').version; console.log('express', v); if (parseInt(v, 10) !== ${{ matrix.express }}) { console.error('expected express ${{ matrix.express }}.x'); process.exit(1); }"
+      - run: npm run lint
+      - run: npm test
+      - run: npx tsc -p tsconfig.json --noEmit
+
+  sample-app:
+    name: Sample app (Express 5)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm ci
+        working-directory: sample-app
+      - run: npm run build
+        working-directory: sample-app
+      - name: Start sample app
+        working-directory: sample-app
+        run: |
+          PORT=4000 node build/server.js > server.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf -o /dev/null http://localhost:4000/nope -w '' || true; grep -q "Running on" server.log && break; sleep 1; done
+          cat server.log
+      - run: npm test
+        working-directory: sample-app
