@@ -18,6 +18,8 @@ export interface IBaseControllerParams {
     body?: any;
     model?: any;
     securityContext: any;
+    /** Aborts if the request times out, so long running handlers can stop instead of committing work after a 503. */
+    signal: AbortSignal;
 }
 
 // ControllerParams also includes some unknown string values
