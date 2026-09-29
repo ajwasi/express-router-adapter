@@ -1,4 +1,4 @@
-import { ExpressRouterAdapter } from '@symbiotic/express-router-adapter';
+import { ExpressRouterAdapter } from '@ajwasi/express-router-adapter';
 
 export function applyRoutes(app: any): void {
   const { container } = app;

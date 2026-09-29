@@ -1,6 +1,6 @@
 import 'reflect-metadata'; // Required by aurelia-dependency-injection
 
-import { ISecurityContext, ISecurityContextProvider, RouteProvider, SecurityContextProvider } from '@symbiotic/express-router-adapter';
+import { ISecurityContext, ISecurityContextProvider, RouteProvider, SecurityContextProvider } from '@ajwasi/express-router-adapter';
 import { Container } from 'aurelia-dependency-injection';
 import { ApplicationRouteProvider } from './ApplicationRouteProvider';
 

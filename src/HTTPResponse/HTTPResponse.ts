@@ -5,7 +5,11 @@
  * a plain JSON-forgeable property: a handler that echoes request data would let a caller pick its own status code and
  * response headers (Location, Set-Cookie, ...). A symbol can't come from a JSON body, and `Symbol.for` keeps it working
  * if an app ends up with two copies of this package.
+ *
+ * It is an own, enumerable property (not on the prototype) so that copies such as `{ ...response }` and
+ * `Object.assign({}, response)` stay real responses. `JSON.stringify` ignores symbol keys.
  */
+// The key is a stable identifier shared by every copy of this library, not the npm package name: don't change it when renaming.
 export const HTTP_RESPONSE_BRAND = Symbol.for('@symbiotic/express-router-adapter/HTTPResponse');
 
 /**
@@ -40,7 +44,6 @@ export class HTTPResponse implements IHTTPResponse {
         this.status = status;
         this.headers = headers;
         this.body = body;
+        Object.defineProperty(this, HTTP_RESPONSE_BRAND, { value: true, enumerable: true });
     }
 }
-
-Object.defineProperty(HTTPResponse.prototype, HTTP_RESPONSE_BRAND, { value: true });
