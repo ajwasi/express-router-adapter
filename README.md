@@ -24,6 +24,34 @@ import {
 } from '@symbiotic/express-router-adapter';
 ```
 
+## Express version support
+
+| ExpressRouterAdapter | Express | Node |
+| -------------------- | ------- | ---- |
+| 2.x                  | 4.x and 5.x | 18+ |
+| 1.x                  | 4.x     | any  |
+
+The test suite runs against both Express 4 and Express 5 in CI.
+
+### Using it with Express 5
+
+Nothing in the ExpressRouterAdapter API changed, but Express 5 changed its route path syntax
+([path-to-regexp v8](https://expressjs.com/en/guide/migrating-5.html#path-syntax)) and the strings you pass to
+`RouterMetaBuilder.path()` go straight to Express. If you have routes that use any of these, Express 5 will throw when the
+route is registered (at startup), not when it is requested:
+
+| Express 4 path      | Express 5 equivalent            |
+| ------------------- | ------------------------------- |
+| `/files/*`          | `/files/*splat`                 |
+| `/pets/:petId?`     | `/pets{/:petId}`                |
+| `/ab?cd`, `/ab+cd`  | not supported, use a named parameter or two routes |
+| `/:id(\d+)`         | not supported, validate in your handler |
+
+A wildcard like `*splat` is passed to your handler as an array of path segments (`splat: ['a', 'b']`), not a string.
+
+Express 5 also requires Node 18 or later. See the [Express 5 migration guide](https://expressjs.com/en/guide/migrating-5.html)
+for everything else that changed in Express itself.
+
 ## Getting started
 
 ExpressRouterAdapter enhances express, so lets start with a simple express app. This is not a deep dive intro express, see [express documentation](https://expressjs.com/).
