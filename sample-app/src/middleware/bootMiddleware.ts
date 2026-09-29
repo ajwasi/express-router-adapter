@@ -7,6 +7,6 @@ export function bootMiddleware(app: any): void {
       'application/json',
       '+json'
     ],
-    limit: '50mb'
+    limit: '1mb' // keep this small: bodies are buffered in memory, so a big limit is a cheap denial of service
   }));
 }
