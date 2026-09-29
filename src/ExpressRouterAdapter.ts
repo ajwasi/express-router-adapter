@@ -3,7 +3,7 @@ import { Application } from 'express';
 // connect-timeout is a CommonJS `export =` function, so it needs import-equals (works with or without esModuleInterop)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 import timeoutMiddleware = require('connect-timeout');
-import { HTTPResponse, HTTPError } from './HTTPResponse';
+import { HTTPResponse, HTTPError, isHTTPResponse } from './HTTPResponse';
 import { IHTTPRoute } from './RouterMetaBuilder';
 import { ISecurityContextProvider, SecurityContextProvider } from './SecurityContext';
 import { IRouteProvider, RouteProvider } from './RouteProvider';
@@ -35,6 +35,19 @@ const resolveStatus = (model: any): number => {
     }
     return status;
 };
+
+// Headers that carry credentials must never reach the logs, even at debug level.
+const SENSITIVE_HEADERS = [
+    'authorization', 'proxy-authorization', 'cookie', 'set-cookie', 'x-api-key', 'x-auth-token', 'x-csrf-token'
+];
+const redactHeaders = (headers: any = {}): any => Object.fromEntries(
+    Object.entries(headers).map(([name, value]) => [name, SENSITIVE_HEADERS.includes(name.toLowerCase()) ? '[REDACTED]' : value])
+);
+
+// Query values are typed as strings, but express can hand back arrays (repeated keys) and, with the extended query parser
+// (the default in Express 4), nested objects like `?name[$ne]=x`. Objects are rejected so handlers can't be type-confused.
+const isSafeQueryValue = (value: any): boolean =>
+    value === undefined || typeof value === 'string' || (Array.isArray(value) && value.every((item) => typeof item === 'string'));
 
 const isAcceptableContentType = (mediaType, req) => {
     return Boolean(req.is(mediaType));
@@ -131,16 +144,41 @@ export class ExpressRouterAdapter {
 
             app[httpVerb](joinPaths(BASE_PATH, httpPath), routeMiddleware, async (req, res, next) => {
                 try {
-                    let requestLogMessage = `${req.method} ${req.url}`;
+                    // Only the path is logged: the query string routinely carries tokens and personal data.
+                    let requestLogMessage = `${req.method} ${req.path}`;
 
                     log.info(requestLogMessage);
-                    log.debug('headers', req.headers);
+                    log.debug('headers', redactHeaders(req.headers));
 
-                    req.on('timeout', () => next(new HTTPError({
-                        status: 503,
-                        message: `Request timeout of ${routeTimeout} exceeded`,
-                        code: 'timedout'
-                    })));
+                    // A handler can't be cancelled once started, but it can stop cooperatively. Without this a client
+                    // gets a 503, retries, and the first attempt's side effects still commit.
+                    const abortController = new AbortController();
+                    req.on('timeout', () => {
+                        abortController.abort();
+                        next(new HTTPError({
+                            status: 503,
+                            message: `Request timeout of ${routeTimeout} exceeded`,
+                            code: 'timedout'
+                        }));
+                    });
+
+                    // Authenticate before doing any other work for the request, so anonymous callers can't reach
+                    // formatters or learn which media types a protected route supports.
+                    const securityContext = await securityContextProvider.getSecurityContext({ req });
+
+                    requestLogMessage += ` (${securityContext?.toLogSafeString()})`;
+
+                    log.info(requestLogMessage);
+
+                    // Make security context available to error handler
+                    req.expressRouterAdapter = { securityContext };
+
+                    if (!allowAnonymous && (!securityContext || !securityContext.principal)) {
+                        throw new HTTPError({
+                            status: 401,
+                            message: 'Authorization is required'
+                        });
+                    }
 
                     const body = ['PUT', 'PATCH', 'POST'].includes(req.method) ? req.body : null;
 
@@ -158,46 +196,48 @@ export class ExpressRouterAdapter {
                         handler
                     });
 
-                    const controllerParams =  {...req.params, req };
-                    httpQueryParams.forEach((queryKey) => controllerParams[queryKey] = req.query[queryKey]);
+                    const controllerParams =  {...req.params, req, signal: abortController.signal };
+                    httpQueryParams.forEach((queryKey) => {
+                        const value = req.query[queryKey];
+                        if (!isSafeQueryValue(value)) {
+                            throw new HTTPError({
+                                status: 400,
+                                message: `Query parameter '${queryKey}' must be a string or a list of strings`
+                            });
+                        }
+                        controllerParams[queryKey] = value;
+                    });
 
                     if (body) {
-                        log.debug('body', JSON.stringify(body));
+                        // Field names only: bodies routinely carry passwords and personal data.
+                        log.debug('body', typeof body === 'object' ? Object.keys(body) : typeof body);
                         controllerParams.body = body;
 
                         controllerParams.model = requestFormatter.formatter.formatFromRequest(req.body, { req });
                     }
 
-                    const securityContext = await securityContextProvider.getSecurityContext({ req });
-
-                    requestLogMessage += ` (${securityContext.toLogSafeString()})`;
-
-                    log.info(requestLogMessage);
-
-                    // Make security context available to error handler
-                    req.expressRouterAdapter = { securityContext };
-
-                    if (!allowAnonymous && (!securityContext || !securityContext.principal)) {
-                        throw new HTTPError({
-                            status: 401,
-                            message: 'Authorization is required'
-                        });
-                    }
                     controllerParams.securityContext = securityContext;
 
                     let model = await handler(controllerParams);
 
                     if (!model) {
                         model = new HTTPResponse({ status: 204 });
-                    } else if (!model.isHTTPResponse) {
+                    } else if (!isHTTPResponse(model)) {
+                        if (!responseFormatter) {
+                            // The handler has already run by this point (a non GET might legitimately return nothing).
+                            throw new HTTPError({
+                                status: 406,
+                                message: `The requested Accept format cannot be satisfied. Try one of the supported media types: ${formatters.map((mt) => mt.formatter.mediaType).join(', ')}`
+                            });
+                        }
                         const formattedModel = await responseFormatter.formatter.formatForResponse(model, { req, res });
-                        const { isHTTPResponse = false } = formattedModel;
                         const { mediaType } = responseFormatter.formatter;
 
-                        const httpResponse = isHTTPResponse ?
+                        const httpResponse = isHTTPResponse(formattedModel) ?
                             formattedModel :
                             new HTTPResponse({ status: 200, body: formattedModel });
 
+                        httpResponse.headers = httpResponse.headers || {};
                         if (!httpResponse.headers['content-type'] && mediaType) {
                             httpResponse.headers['content-type'] = mediaType;
                         }
@@ -211,7 +251,10 @@ export class ExpressRouterAdapter {
 
                     log.info(`${res.statusCode} ${requestLogMessage}`);
                 } catch (err) {
-                    next(err);
+                    // A timeout has already been reported to the client, don't hand express a second error for it.
+                    if (!req.timedout) {
+                        next(err);
+                    }
                 }
             });
         }
@@ -247,7 +290,7 @@ export class ExpressRouterAdapter {
             }
             if (body && !requestFormatter) {
                 // tslint:disable-next-line max-line-length
-                throw new HTTPError({ status: 415, message: `The provided Content-Type ${req.headers['content-type']} is not supported. Try one of the supported media types: ${requestFormatters.map((mt) => mt.formatter.mediaType).join(', ')}` });
+                throw new HTTPError({ status: 415, message: `The provided Content-Type is not supported. Try one of the supported media types: ${requestFormatters.map((mt) => mt.formatter.mediaType).join(', ')}` });
             }
             const isGetRequest = req.method === 'GET';
 
