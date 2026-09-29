@@ -6,9 +6,9 @@ import {
   SecurityContextProvider,
   HTTPError
 } from '../src';
-import * as request from 'supertest';
-import * as express from 'express';
-import * as assert from 'assert';
+import request from 'supertest';
+import express from 'express';
+import assert from 'assert';
 
 // tslint:disable max-classes-per-file
 const mockLog = {
@@ -64,7 +64,7 @@ describe('ExpressRouterAdapter', () => {
           .path('/')
           .allowAnonymous()
           .get(() => {
-            return new Promise((resolve) => {
+            return new Promise<void>((resolve) => {
               setTimeout(
                 () => resolve(),
                 61
@@ -86,7 +86,7 @@ describe('ExpressRouterAdapter', () => {
           .allowAnonymous()
           .timeout(50)
           .get(() => {
-            return new Promise((resolve) => {
+            return new Promise<void>((resolve) => {
               setTimeout(
                 () => resolve(),
                 51
@@ -414,13 +414,95 @@ describe('ExpressRouterAdapter', () => {
         .expect(400);
   });
 
+  describe('response status', () => {
+    it('defaults a missing status to 200 when there is a body', async () => {
+      const sut = buildSuperTestHarnessForRoute(
+        new RouterMetaBuilder()
+          .path('/')
+          .allowAnonymous()
+          .get(() => new HTTPResponse({ body: { ok: true } } as any))
+      );
+
+      await sut.get('/').expect(200).expect({ ok: true });
+    });
+
+    it('defaults a missing status to 204 when there is no body', async () => {
+      const sut = buildSuperTestHarnessForRoute(
+        new RouterMetaBuilder()
+          .path('/')
+          .allowAnonymous()
+          .get(() => new HTTPResponse({} as any))
+      );
+
+      await sut.get('/').expect(204);
+    });
+
+    it('fails with a descriptive error when the status is not a valid status code', async () => {
+      const errors: any[] = [];
+      const app = buildExpressAppWithRoute(
+        new RouterMetaBuilder()
+          .path('/')
+          .allowAnonymous()
+          .get(() => new HTTPResponse({ status: '200' as any, body: {} })),
+        500,
+        (error) => errors.push(error)
+      );
+
+      await request(app).get('/').expect(500);
+      assert.strictEqual(errors.length, 1);
+      assert.ok(/status must be an integer/.test(errors[0].message), errors[0].message);
+    });
+  });
+
+  describe('route path syntax', () => {
+    it('supports named parameters', async () => {
+      const sut = buildSuperTestHarnessForRoute(
+        new RouterMetaBuilder()
+          .path('/pets/:petId')
+          .allowAnonymous()
+          .get(({ petId }) => ({ petId }))
+      );
+
+      await sut.get('/pets/42').expect(200).expect({ petId: '42' });
+    });
+
+    // Express 5 path syntax (path-to-regexp v8). These paths throw at registration under Express 4.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const isExpress5 = parseInt(require('express/package.json').version, 10) >= 5;
+    const itExpress5 = isExpress5 ? it : it.skip;
+
+    itExpress5('supports optional segments with braces', async () => {
+      const app = buildExpressAppWithRoute(
+        new RouterMetaBuilder().path('/pets{/:petId}').allowAnonymous().get(({ petId }) => ({ petId: petId || null })),
+        500
+      );
+      await request(app).get('/pets/7').expect(200).expect({ petId: '7' });
+      await request(app).get('/pets').expect(200).expect({ petId: null });
+    });
+
+    itExpress5('supports named wildcards, which arrive as an array of segments', async () => {
+      const app = buildExpressAppWithRoute(
+        new RouterMetaBuilder().path('/files/*splat').allowAnonymous().get(({ splat }) => ({ splat })),
+        500
+      );
+      await request(app).get('/files/a/b').expect(200).expect({ splat: ['a', 'b'] });
+    });
+
+    itExpress5('fails at registration for the Express 4 wildcard syntax', () => {
+      assert.throws(
+        () => buildExpressAppWithRoute(new RouterMetaBuilder().path('/files/*').allowAnonymous().get(() => 'x'), 500),
+        /Missing parameter name/
+      );
+    });
+  });
+
 });
 
 function buildSuperTestHarnessForRoute(route, timeout = 500) {
   return request(buildExpressAppWithRoute(route, timeout));
 }
 
-function buildExpressAppWithRoute(route, timeout) {
+function buildExpressAppWithRoute(route, timeout, onError: (error: any) => void = () => undefined) {
   const app = express();
   app.use(express.json({
     type: ['application/json', '+json']
@@ -439,6 +521,7 @@ function buildExpressAppWithRoute(route, timeout) {
 
   // override the default error handler so it doesn't console.log
   app.use((error, req, res, next) => {
+    onError(error);
     res.status(error.status || 500).json(error);
   });
   return app;
