@@ -23,7 +23,11 @@ jobs:
       - run: npm ci
       # Run the same suite against each supported express major, with its matching types.
       - run: npm install --no-save express@${{ matrix.express }} @types/express@${{ matrix.express }}
-      - run: npm ls express @types/express
+      # Fail fast if the matrix didn't actually install the express major we mean to test.
+      # (`npm ls` can't be used: swapping versions with --no-save intentionally differs from package.json.)
+      - name: Verify installed express version
+        run: |
+          node -e "const v=require('express/package.json').version; console.log('express', v); if (parseInt(v, 10) !== ${{ matrix.express }}) { console.error('expected express ${{ matrix.express }}.x'); process.exit(1); }"
       - run: npm run lint
       - run: npm test
       - run: npx tsc -p tsconfig.json --noEmit
