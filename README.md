@@ -1,5 +1,9 @@
 # ExpressRouterAdapter
 
+> **This is a maintained fork** of [Meraki-Solutions/express-router-adapter](https://github.com/Meraki-Solutions/express-router-adapter)
+> (archived by its owner in September 2025), published as `@ajwasi/express-router-adapter`. It adds Express 5 support and security
+> hardening; see the [CHANGELOG](./CHANGELOG.md). Original work by Symbiotic Labs under the MIT license.
+
 ExpressRouterAdapter is a library that makes it easy to build evolvable hypermedia APIs using the express framework.
 
 ## Installation
@@ -7,7 +11,7 @@ ExpressRouterAdapter is a library that makes it easy to build evolvable hypermed
 ExpressRouterAdapter is available as a package on NPM for use with a module bundler.
 
 ```shell
-npm install --save @symbiotic/express-router-adapter
+npm install --save @ajwasi/express-router-adapter
 ```
 
 The core imports
@@ -21,7 +25,7 @@ import {
   SecurityContextProvider,
   ISecurityContext,
   ExpressRouterAdapter
-} from '@symbiotic/express-router-adapter';
+} from '@ajwasi/express-router-adapter';
 ```
 
 ## Express version support
@@ -86,10 +90,10 @@ app.listen(4000);
 
 ```
 
-Lets install ExpressRouterAdapter. We are using IOC in our examples, so we are also installing `aurelia-dependency-inject` (and it's dependency `reflect-metadata`), but you could new up all the classes yourself if you choose, in which case you only need to install `@symbiotic/express-router-adapter`.
+Lets install ExpressRouterAdapter. We are using IOC in our examples, so we are also installing `aurelia-dependency-inject` (and it's dependency `reflect-metadata`), but you could new up all the classes yourself if you choose, in which case you only need to install `@ajwasi/express-router-adapter`.
 
 ```shell
-npm install --save @symbiotic/express-router-adapter aurelia-dependency-injection reflect-metadata
+npm install --save @ajwasi/express-router-adapter aurelia-dependency-injection reflect-metadata
 ```
 
 Now we can add ExpressRouterAdapter and refactor to use RouterMetaBuilder to define our routes.
@@ -101,7 +105,7 @@ import {
   ExpressRouterAdapter,
   RouterMetaBuilder,
   RouteProvider
-} from '@symbiotic/express-router-adapter';
+} from '@ajwasi/express-router-adapter';
 import { Container } from 'aurelia-dependency-injection';
 
 const container = new Container();
@@ -132,7 +136,7 @@ app.listen(4000);
 We expose a `CompositeRouteProvider` to save you from building the composite yourself.
 
 ```js
-import { CompositeRouteProvider, RouteProvider } from '@symbiotic/express-router-adapter';
+import { CompositeRouteProvider, RouteProvider } from '@ajwasi/express-router-adapter';
 import { Container } from 'aurelia-dependency-injection';
 import { Router1, Router2 } from '.';
 
@@ -280,7 +284,7 @@ app.use(err: any, req: any, res: any, next: any): void {
 ## What if I want more control over the status code or headers
 
  ```js
-import { HTTPResponse, RouterMetaBuilder } from '@symbiotic/express-router-adapter';
+import { HTTPResponse, RouterMetaBuilder } from '@ajwasi/express-router-adapter';
 
 class PetRouter{
   getRoutes(){
@@ -308,7 +312,7 @@ class PetRouter{
 You also can throw
 
 ```js
-import { HTTPError, RouterMetaBuilder } from '@symbiotic/express-router-adapter';
+import { HTTPError, RouterMetaBuilder } from '@ajwasi/express-router-adapter';
 
 class PetRouter{
   getRoutes(){
@@ -337,7 +341,7 @@ class PetRouter{
 Which is convenient as you abstract things away, so you can end up with code like
 
 ```js
-import { RouterMetaBuilder } from '@symbiotic/express-router-adapter';
+import { RouterMetaBuilder } from '@ajwasi/express-router-adapter';
 
 class PetRouter{
   getRoutes(){
@@ -363,7 +367,7 @@ In previous examples, we aren't specifying the media type, and so we're getting 
 Consider this example
 
 ```js
-import { IHTTPRoute, RouterMetaBuilder } from '@symbiotic/express-router-adapter';
+import { IHTTPRoute, RouterMetaBuilder } from '@ajwasi/express-router-adapter';
 
 interface IPet {
   name: string;
@@ -393,7 +397,7 @@ Our data model has an internal path that we don't want to leak out.
 We can add our own media type to encapsulate this.
 
 ```ts
-import { IHTTPRoute, RouterMetaBuilder } from '@symbiotic/express-router-adapter';
+import { IHTTPRoute, RouterMetaBuilder } from '@ajwasi/express-router-adapter';
 import { autoinject } from 'aurelia-dependency-injection';
 
 interface IPet {
@@ -435,7 +439,7 @@ export class PetRouter {
 But now lets imagine we want to make a breaking change, we want to split name into first name and last name. This is easy with media types. Our model will have both properties, and our media types can format correctly so that our old consumers still get name.
 
 ```ts
-import { IHTTPRoute, RouterMetaBuilder } from '@symbiotic/express-router-adapter';
+import { IHTTPRoute, RouterMetaBuilder } from '@ajwasi/express-router-adapter';
 import { autoinject } from 'aurelia-dependency-injection';
 
 interface IPet {
@@ -500,7 +504,7 @@ curl -H accept:application/pet+json  http://localhost:4000/pets/1
 We also can re-use our formatter for formatting lists of pets...
 
 ```ts
-import { IHTTPRoute, RouterMetaBuilder } from '@symbiotic/express-router-adapter';
+import { IHTTPRoute, RouterMetaBuilder } from '@ajwasi/express-router-adapter';
 import { autoinject } from 'aurelia-dependency-injection';
 
 interface IPet {
@@ -688,7 +692,7 @@ import {
   ISecurityContextProvider,
   RouteProvider,
   SecurityContextProvider
-} from '@symbiotic/express-router-adapter';
+} from '@ajwasi/express-router-adapter';
 import { Container } from 'aurelia-dependency-injection';
 import { ApplicationRouteProvider } from './ApplicationRouteProvider';
 

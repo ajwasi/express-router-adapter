@@ -1,4 +1,4 @@
-/// <reference types="node" />
+/// <reference types="node" preserve="true" />
 import { Request } from 'express';
 import { IHTTPResponse } from './HTTPResponse';
 
@@ -28,7 +28,9 @@ export interface IBaseControllerParams {
 // from any calls to query (e.g. the key 'biz' is a string on controller params if you call query('biz'))
 export type IControllerParams = IBaseControllerParams & { [key: string]: any; };
 
-type RouteHandler = (controllerParams?: IControllerParams) => any;
+// The adapter always passes the params, so they are not optional (an optional parameter forces every handler to annotate
+// its own type under `strict`). Handlers that take no parameters are still assignable.
+type RouteHandler = (controllerParams: IControllerParams) => any;
 type HTTPVerbSetter = (defaultHandler: RouteHandler) => IHTTPRoute;
 
 export interface IMediaTypeFormatter {

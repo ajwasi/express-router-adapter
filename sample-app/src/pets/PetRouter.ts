@@ -1,4 +1,4 @@
-import { IHTTPRoute, RouterMetaBuilder } from '@symbiotic/express-router-adapter';
+import { IHTTPRoute, RouterMetaBuilder } from '@ajwasi/express-router-adapter';
 import { autoinject } from 'aurelia-dependency-injection';
 
 interface IPet {
