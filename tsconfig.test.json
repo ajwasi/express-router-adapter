@@ -4,9 +4,8 @@
         "rootDir": ".",
         "module": "commonjs",
         "noEmit": true,
-        "lib": [
-            "es6",
-            "dom"
-        ]
-    }
+        "esModuleInterop": true,
+        "types": ["node", "mocha"]
+    },
+    "include": ["src", "tests"]
 }

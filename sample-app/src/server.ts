@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import * as enableDestroy from 'server-destroy';
+import enableDestroy = require('server-destroy');
 import { hotReload } from './hot-reload';
 
 const port = process.env.PORT || 4000;
@@ -38,7 +38,7 @@ async function start(): Promise<void> {
 }
 
 async function restart(): Promise<void> {
-  await new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     if (!activeServer) {
       resolve();
     } else {
