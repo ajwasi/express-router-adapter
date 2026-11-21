@@ -19,8 +19,7 @@ export class HTTPError extends Error implements IHTTPResponse {
         this.code = code;
         this.headers = headers;
         this.body = body;
+        Object.defineProperty(this, HTTP_RESPONSE_BRAND, { value: true, enumerable: true });
     }
 
 }
-
-Object.defineProperty(HTTPError.prototype, HTTP_RESPONSE_BRAND, { value: true });

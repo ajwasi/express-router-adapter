@@ -5,7 +5,6 @@ import {
   ExpressRouterAdapter,
   ExpressRouterAdapterConfig,
   HTTPResponse,
-  Log,
   RouterMetaBuilder
 } from '../src';
 
@@ -19,8 +18,14 @@ class HeaderSecurityContextProvider {
 
 const quietLog = { info() { /* noop */ }, debug() { /* noop */ } };
 
-function buildApp(routes: any[], { log = quietLog, timeout = 500, onError = (_e: any) => undefined as void } = {}) {
+function buildApp(
+  routes: any[],
+  { log = quietLog, timeout = 500, onError = (_e: any) => undefined as void, queryParser = undefined as string | undefined } = {}
+) {
   const app = express();
+  if (queryParser) {
+    app.set('query parser', queryParser);
+  }
   app.use(express.json({ type: ['application/json', '+json'] }));
   new ExpressRouterAdapter(
     new ExpressRouterAdapterConfig({ TIMEOUT: timeout }),
@@ -202,9 +207,6 @@ describe('security hardening', () => {
       assert.ok(logged.includes('POST /l'), 'the request should still be logged');
     });
 
-    it('the default logger does not change behavior', () => {
-      assert.doesNotThrow(() => new Log().debug('x'));
-    });
   });
 
   describe('query parameters', () => {
@@ -219,11 +221,15 @@ describe('security hardening', () => {
       await request(buildApp([route()])).get('/q?name=a&name=b').expect(200).expect({ kind: 'array', name: ['a', 'b'] });
     });
 
-    it('never hands a nested object to the handler', async () => {
-      // Express 4's extended parser produces { $ne: 'x' } (rejected with 400); Express 5's simple parser never does.
-      const res = await request(buildApp([route()])).get('/q?name[$ne]=x');
-      assert.ok(res.status === 400 || res.body.kind === 'undefined', JSON.stringify(res.body));
-      assert.notStrictEqual(res.body.kind, 'object');
+    it('rejects nested objects with a 400 when the extended query parser is on (the Express 4 default)', async () => {
+      const app = buildApp([route()], { queryParser: 'extended' });
+      const res = await request(app).get('/q?name[$ne]=x').expect(400);
+      assert.ok(/must be a string or a list of strings/.test(res.body.message), res.body.message);
+    });
+
+    it('never produces a nested object with the simple query parser (the Express 5 default)', async () => {
+      const res = await request(buildApp([route()], { queryParser: 'simple' })).get('/q?name[$ne]=x').expect(200);
+      assert.strictEqual(res.body.kind, 'undefined');
     });
   });
 

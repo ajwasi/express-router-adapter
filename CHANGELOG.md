@@ -24,6 +24,18 @@
 - The 415 message no longer echoes the request's `Content-Type`.
 
 ### Changed
+- **Breaking:** the package is now published as `@ajwasi/express-router-adapter` (a maintained fork of the archived
+  `@symbiotic/express-router-adapter`). Update your imports and `package.json`.
+- Requests with no body now look the same on Express 4 and 5: `body` is `{}` (Express 4's behavior; Express 5 leaves it
+  `undefined`). As on Express 4, a bodyless POST to a route that only has custom media types gets a 415.
+- Debug logging of request headers is now an allowlist (`LOGGED_HEADERS` on `ExpressRouterAdapterConfig`); every other header
+  is logged by name only.
+- The handler parameter is no longer optional in `RouterMetaBuilder` typings, so `({ signal })` type checks under `strict`.
+  `IControllerParams` no longer intersects `req` and `signal` with `string`.
+- `signal` also aborts when the client disconnects, not only on timeout.
+- Responses copied with `{ ...response }` or `Object.assign` stay real responses; a response with an invalid status no longer
+  sends its headers with the resulting 500.
+- Typings reference `@types/node` (for `AbortSignal`); it is an optional peer dependency.
 - **Breaking:** requires Node 18 or later (`engines`), matching Express 5. Compiled output now targets ES2020.
 - `ISecurityContextProvider.getSecurityContext` is now typed as `(params: { req: any; [key: string]: any })`. The previous
   signature `({ req: any }: any)` renamed `req` to a variable called `any` and typed nothing. Existing implementations that

@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@codegenie/serverless-express": "^4.16.0",
-    "@symbiotic/express-router-adapter": "file:..",
+    "@ajwasi/express-router-adapter": "file:..",
     "aurelia-dependency-injection": "^1.5.2",
     "chokidar": "^4.0.0",
     "express": "^5.1.0",

@@ -36,13 +36,30 @@ const resolveStatus = (model: any): number => {
     return status;
 };
 
-// Headers that carry credentials must never reach the logs, even at debug level.
-const SENSITIVE_HEADERS = [
-    'authorization', 'proxy-authorization', 'cookie', 'set-cookie', 'x-api-key', 'x-auth-token', 'x-csrf-token'
+// Only headers on this allowlist are logged with their values. A denylist can't keep up with the credential headers apps
+// invent (x-amz-security-token, x-goog-iap-jwt-assertion, ...), so everything else is logged by name only.
+// Override with `LOGGED_HEADERS` on ExpressRouterAdapterConfig.
+const DEFAULT_LOGGED_HEADERS = [
+    'host', 'user-agent', 'accept', 'accept-encoding', 'accept-language', 'content-type', 'content-length', 'origin',
+    'x-request-id', 'x-correlation-id', 'x-forwarded-for', 'x-forwarded-proto'
 ];
-const redactHeaders = (headers: any = {}): any => Object.fromEntries(
-    Object.entries(headers).map(([name, value]) => [name, SENSITIVE_HEADERS.includes(name.toLowerCase()) ? '[REDACTED]' : value])
-);
+const loggableHeaders = (headers: any = {}, allowlist: string[]): any => {
+    const allowed = allowlist.map((name) => name.toLowerCase());
+    const logged: any = {};
+    const omittedHeaders: string[] = [];
+    Object.entries(headers).forEach(([name, value]) => {
+        if (allowed.includes(name.toLowerCase())) {
+            logged[name] = value;
+        } else {
+            omittedHeaders.push(name);
+        }
+    });
+    return { ...logged, omittedHeaders };
+};
+
+// A security context is app supplied code, don't let a missing description turn every request into a 500.
+const describeSecurityContext = (securityContext: any): string =>
+    typeof securityContext?.toLogSafeString === 'function' ? securityContext.toLogSafeString() : 'no log-safe description';
 
 // Query values are typed as strings, but express can hand back arrays (repeated keys) and, with the extended query parser
 // (the default in Express 4), nested objects like `?name[$ne]=x`. Objects are rejected so handlers can't be type-confused.
@@ -73,6 +90,8 @@ class PassThroughFormatter {
 export class ExpressRouterAdapterConfig {
     BASE_PATH: string = '/';
     TIMEOUT: string | number = '29s';
+    /** Request headers whose values may be written to the debug log. All other headers are logged by name only. */
+    LOGGED_HEADERS: string[] = DEFAULT_LOGGED_HEADERS;
 
     constructor(config: any = {}) {
         Object.assign(
@@ -120,7 +139,7 @@ export class ExpressRouterAdapter {
 
     applyRoutes = (app: Application) => {
         const { log, securityContextProvider } = this;
-        const { BASE_PATH, TIMEOUT: GLOBAL_TIMEOUT } = this.config;
+        const { BASE_PATH, TIMEOUT: GLOBAL_TIMEOUT, LOGGED_HEADERS } = this.config;
 
         this.routeProvider.getRoutes().forEach(addRoute);
 
@@ -148,11 +167,17 @@ export class ExpressRouterAdapter {
                     let requestLogMessage = `${req.method} ${req.path}`;
 
                     log.info(requestLogMessage);
-                    log.debug('headers', redactHeaders(req.headers));
+                    log.debug('headers', loggableHeaders(req.headers, LOGGED_HEADERS));
 
                     // A handler can't be cancelled once started, but it can stop cooperatively. Without this a client
                     // gets a 503, retries, and the first attempt's side effects still commit.
                     const abortController = new AbortController();
+                    // Also stop if the client goes away before we answer (closed tab, dropped connection, its own timeout).
+                    res.on('close', () => {
+                        if (!res.writableEnded) {
+                            abortController.abort();
+                        }
+                    });
                     req.on('timeout', () => {
                         abortController.abort();
                         next(new HTTPError({
@@ -166,7 +191,7 @@ export class ExpressRouterAdapter {
                     // formatters or learn which media types a protected route supports.
                     const securityContext = await securityContextProvider.getSecurityContext({ req });
 
-                    requestLogMessage += ` (${securityContext?.toLogSafeString()})`;
+                    requestLogMessage += ` (${describeSecurityContext(securityContext)})`;
 
                     log.info(requestLogMessage);
 
@@ -180,7 +205,11 @@ export class ExpressRouterAdapter {
                         });
                     }
 
-                    const body = ['PUT', 'PATCH', 'POST'].includes(req.method) ? req.body : null;
+                    // Express 4's body parser leaves `{}` when nothing was sent and Express 5 leaves `undefined`. Normalize to
+                    // the Express 4 behavior so a route behaves the same on both.
+                    const body = ['PUT', 'PATCH', 'POST'].includes(req.method) ?
+                        (req.body === undefined ? {} : req.body) :
+                        null;
 
                     const requestFormatter = getRequestFormatter({ req, requestFormatters: formatters, body });
                     const responseFormatter = getResponseFormatter({ req, responseFormatters: formatters });
@@ -213,7 +242,7 @@ export class ExpressRouterAdapter {
                         log.debug('body', typeof body === 'object' ? Object.keys(body) : typeof body);
                         controllerParams.body = body;
 
-                        controllerParams.model = requestFormatter.formatter.formatFromRequest(req.body, { req });
+                        controllerParams.model = requestFormatter.formatter.formatFromRequest(body, { req });
                     }
 
                     controllerParams.securityContext = securityContext;
@@ -351,10 +380,12 @@ export class ExpressRouterAdapter {
             response,
             model,
         }: any): Promise<void> {
+            // Validate first: an invalid response must not leave its headers (say Set-Cookie) on the error we send instead.
+            const status = resolveStatus(model);
             Object.entries(model.headers || {}).forEach(([headerName, headerValue]) => {
                 response.set(headerName, headerValue);
             });
-            response.status(resolveStatus(model));
+            response.status(status);
 
             if (model.send) {
                 await model.send({ res: response });
