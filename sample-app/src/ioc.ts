@@ -14,7 +14,8 @@ class ApplicationSecurityContext implements ISecurityContext {
 class ApplicationSecurityContextProvider implements ISecurityContextProvider {
   async getSecurityContext({ req }: any): Promise<ApplicationSecurityContext> {
     const authHeader = req.headers.authorization;
-    // this is NOT real security
+    // this is NOT real security: it trusts whatever the caller puts in the Authorization header as the user.
+    // Never copy this. Verify a signed token (JWT, session, mTLS...) and return the verified principal.
     return new ApplicationSecurityContext(authHeader);
   }
 

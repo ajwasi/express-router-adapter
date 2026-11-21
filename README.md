@@ -52,6 +52,24 @@ A wildcard like `*splat` is passed to your handler as an array of path segments 
 Express 5 also requires Node 18 or later. See the [Express 5 migration guide](https://expressjs.com/en/guide/migrating-5.html)
 for everything else that changed in Express itself.
 
+## Security notes
+
+- **Response envelopes.** Only `HTTPResponse` / `HTTPError` instances (or an object with a `send` function) are treated as
+  the response itself. A plain object that merely has `status`, `headers` and `body` properties is treated as data and
+  serialized like any other model, so a handler that echoes request data can't let a caller pick its own status code or
+  headers.
+- **Authentication runs first.** For routes that don't `allowAnonymous`, the security context is resolved and checked before
+  any formatter, media type check or handler runs. Unauthenticated callers get a 401, not a 406 or 415.
+- **Timeouts can't cancel your handler.** A 503 is sent, but the handler keeps running. Long running handlers should watch
+  `signal` (an `AbortSignal` passed to every handler) and stop before committing work:
+  `.post(async ({ signal }) => { await slowThing(); if (signal.aborted) return; await commit(); })`.
+  Make retried operations idempotent as well.
+- **Logging.** Debug logging redacts `Authorization`, `Cookie` and similar headers and only logs body field names. Requests
+  are logged by path, never by query string. If you supply your own `ILog`, keep it that way.
+- **Query values.** Values from `.query('name')` are a string, or a list of strings when the key is repeated. Nested objects
+  such as `?name[$ne]=x` are rejected with a 400. Validate the values before using them in a database query.
+- **Body size.** Limits are set by whatever parses the body (for example `express.json({ limit })`), not by the adapter.
+
 ## Getting started
 
 ExpressRouterAdapter enhances express, so lets start with a simple express app. This is not a deep dive intro express, see [express documentation](https://expressjs.com/).
@@ -240,18 +258,17 @@ then it will bubble to the express middleware to your error handler. If you have
 
 ```js
 app.use(err: any, req: any, res: any, next: any): void {
-  const {
-    status = 500,
-    message = 'Server Error'
-  } = err;
+  const { status = 500 } = err;
   if (status >= 500) {
     console.log('failed to process request', req.method, req.path);
     console.error('error handler error', err);
   }
 
+  // Never send the message of a server error to the caller: it can contain connection strings, SQL, file paths...
+  // (HTTPError messages for 4xx are written for callers and are fine to return.)
   let body = err.body || {
       status,
-      message
+      message: status >= 500 ? 'Server Error' : err.message
   };
 
   res.status(status)

@@ -1,4 +1,4 @@
-import { IHTTPResponse } from './HTTPResponse';
+import { HTTP_RESPONSE_BRAND, IHTTPResponse } from './HTTPResponse';
 
 export class HTTPError extends Error implements IHTTPResponse {
     status: number;
@@ -22,3 +22,5 @@ export class HTTPError extends Error implements IHTTPResponse {
     }
 
 }
+
+Object.defineProperty(HTTPError.prototype, HTTP_RESPONSE_BRAND, { value: true });
