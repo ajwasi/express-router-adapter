@@ -149,10 +149,11 @@ describe('ExpressRouterAdapter', () => {
         .get(() => new HTTPResponse({ status: 200, body: { hello: 'world' }}))
     );
 
-    await sut.get('/')
-      .expect('content-type', /^application\/json.*/)
-      .expect(200)
-      .expect({ hello: 'world' });
+    const response = await sut.get('/');
+
+    assert.strictEqual(response.status, 200);
+    assert.match(response.headers['content-type'], /^application\/json.*/);
+    assert.deepStrictEqual(response.body, { hello: 'world' });
   });
 
   it('when an http response with a send method is returned, should use that', async () => {
@@ -169,10 +170,11 @@ describe('ExpressRouterAdapter', () => {
         }))
     );
 
-    await sut.get('/')
-      .expect(200)
-      .expect({ hello: 'world' })
-      .expect('X-CUSTOM-HEADER', 'hello world');
+    const response = await sut.get('/');
+
+    assert.strictEqual(response.status, 200);
+    assert.deepStrictEqual(response.body, { hello: 'world' });
+    assert.strictEqual(response.headers['x-custom-header'], 'hello world');
   });
 
   describe('given a custom media type', () => {

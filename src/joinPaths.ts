@@ -7,5 +7,5 @@
  */
 export const joinPaths = (...parts: string[]): string => {
     const collapsed = `/${parts.filter(Boolean).join('/')}`.replace(/\/{2,}/g, '/');
-    return collapsed.length > 1 ? collapsed.replace(/\/+$/, '') : collapsed;
+    return collapsed.length > 1 && collapsed.endsWith('/') ? collapsed.slice(0, -1) : collapsed;
 };
