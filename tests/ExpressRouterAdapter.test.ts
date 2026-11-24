@@ -504,6 +504,7 @@ function buildSuperTestHarnessForRoute(route, timeout = 500) {
 
 function buildExpressAppWithRoute(route, timeout, onError: (error: any) => void = () => undefined) {
   const app = express();
+  app.disable('x-powered-by');
   app.use(express.json({
     type: ['application/json', '+json']
   }));
@@ -522,7 +523,7 @@ function buildExpressAppWithRoute(route, timeout, onError: (error: any) => void 
   // override the default error handler so it doesn't console.log
   app.use((error, req, res, next) => {
     onError(error);
-    res.status(error.status || 500).json(error);
+    res.status(error.status || 500).json({ status: error.status || 500, code: error.code, message: error.message });
   });
   return app;
 }
