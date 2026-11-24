@@ -20,9 +20,9 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       # Run the same suite against each supported express major, with its matching types.
-      - run: npm install --no-save express@${{ matrix.express }} @types/express@${{ matrix.express }}
+      - run: npm install --no-save --ignore-scripts express@${{ matrix.express }} @types/express@${{ matrix.express }}
       # Fail fast if the matrix didn't actually install the express major we mean to test.
       # (`npm ls` can't be used: swapping versions with --no-save intentionally differs from package.json.)
       - name: Verify installed express version
@@ -30,7 +30,7 @@ jobs:
           node -e "const v=require('express/package.json').version; console.log('express', v); if (parseInt(v, 10) !== ${{ matrix.express }}) { console.error('expected express ${{ matrix.express }}.x'); process.exit(1); }"
       - run: npm run lint
       - run: npm test
-      - run: npx tsc -p tsconfig.json --noEmit
+      - run: npm run typecheck
 
   sample-app:
     name: Sample app (Express 5)
@@ -41,9 +41,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npm run build
-      - run: npm ci
+      - run: npm ci --ignore-scripts
         working-directory: sample-app
       - run: npm run build
         working-directory: sample-app

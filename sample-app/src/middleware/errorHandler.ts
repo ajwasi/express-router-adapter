@@ -1,3 +1,6 @@
+// Strip control characters (CR/LF etc.) so user-controlled values can't forge log lines.
+const sanitize = (value: unknown): string => String(value).replace(/[\u0000-\u001f\u007f]/g, '_');
+
 export function errorHandler(err: any, req: any, res: any, next: any): void { // eslint-disable-line no-unused-vars
 
   const {
@@ -5,13 +8,13 @@ export function errorHandler(err: any, req: any, res: any, next: any): void { //
     message = 'Server Error'
   } = err;
   if (status >= 500) {
-    console.log('failed to process request', req.method, req.path);
+    console.log('failed to process request', sanitize(req.method), sanitize(req.path));
     console.error('error handler error', err);
   }
 
-  let requestLogMessage = `${status} ${req.method} ${req.url}`;
+  let requestLogMessage = `${status} ${sanitize(req.method)} ${sanitize(req.url)}`;
   if (req.expressRouterAdapter && req.expressRouterAdapter.securityContext) {
-    requestLogMessage += ` (${req.expressRouterAdapter.securityContext.toLogSafeString()})`;
+    requestLogMessage += ` (${sanitize(req.expressRouterAdapter.securityContext.toLogSafeString())})`;
   }
 
   console.log(requestLogMessage);
