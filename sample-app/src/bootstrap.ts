@@ -9,6 +9,7 @@ export async function buildExpressApp(): Promise<any> {
     const container = await getContainer();
 
     const app = express();
+    app.disable('x-powered-by');
 
     (app as any).dispose = () => {
       // Any cleanup needed on shutdown, cleaning up connection pools
@@ -25,6 +26,7 @@ export async function buildExpressApp(): Promise<any> {
   } catch (err) {
     console.error('Failed to create container, exiting app', err);
     const app = express();
+    app.disable('x-powered-by');
     app.use((req, res, next) => { // eslint-disable-line no-unused-vars
       res
         .status(500)
