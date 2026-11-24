@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.0.1
+
+### Fixed
+- `joinPaths` no longer uses a backtracking regex to strip trailing slashes (SonarQube).
+- Sample app: unhandled promise rejections on start/restart are now caught, logged request values are sanitized against log injection, and the `X-Powered-By` header is disabled.
+- Tests: added explicit assertions, and the test error handler no longer serialises the raw error object.
+
+### Changed
+- CI installs with `--ignore-scripts` and runs type checking through a new `npm run typecheck` script instead of `npx`.
+
 ## 2.0.0
 
 ### Added
