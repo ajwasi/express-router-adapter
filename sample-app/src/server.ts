@@ -57,11 +57,16 @@ async function restart(): Promise<void> {
   await start();
 }
 
-start();
+start().catch((err) => {
+  console.error('failed to start server', err);
+  process.exit(1);
+});
 
 hotReload({
   onReload: () => {
-    restart();
+    restart().catch((err) => {
+      console.error('failed to restart server', err);
+    });
   },
   watchPaths: [
     {

@@ -14,6 +14,7 @@
     "docs:build": "rm -rf docs && typedoc --out docs --exclude '**/index.ts' src",
     "docs:publish": "npm run docs:build && git checkout gh-pages && cp -R docs/* ./ && rm -rf docs && git add . && git commit -m 'Update docs' && git push origin gh-pages && git checkout master",
     "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepublishOnly": "npm run test && npm run build"
   },
   "keywords": [
